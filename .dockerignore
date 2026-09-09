@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.git/
+.venv/
+input/
+sorted/
+docling_json/
+sorted_by_oneplus/
+original/
+*.zip
+*.tar.gz

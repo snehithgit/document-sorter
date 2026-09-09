@@ -1,0 +1,16 @@
+services:
+  document-console:
+    build: .
+    container_name: document-console
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    environment:
+      DASHBOARD_HOST: 0.0.0.0
+      DASHBOARD_PORT: 8765
+    volumes:
+      - ./input:/app/input
+      - ./sorted:/app/sorted
+      - ./docling_json:/app/docling_json
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
