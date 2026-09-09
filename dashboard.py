@@ -143,8 +143,13 @@ class Handler(BaseHTTPRequestHandler):
         self.respond({'error': 'Not found'}, 404)
 
     def do_POST(self):
-        # Only same-origin UI requests may control the local process.
-        if self.headers.get('Origin') != 'http://127.0.0.1:8765':
+        # Only same-origin UI requests may control the local process. In a
+        # container, Host is the ZimaOS address rather than 127.0.0.1.
+        origin = self.headers.get('Origin')
+        host = self.headers.get('Host', '')
+        allowed_origins = {'http://127.0.0.1:8765', 'http://localhost:8765',
+                           f'http://{host}', f'https://{host}'}
+        if origin and origin not in allowed_origins:
             return self.respond({'error': 'Origin rejected'}, 403)
         try:
             if self.path == '/api/start':
