@@ -348,9 +348,6 @@ def main() -> None:
     completed = queue.Queue()
     stream_failed = threading.Event()
     run_failed = threading.Event()
-    filename_phase_done = threading.Event()
-    filename_phase_lock = threading.Lock()
-    filename_phase_count = 0
 
     with manifest.open("a", encoding="utf-8") as log:
 
@@ -382,17 +379,13 @@ def main() -> None:
 
         def consume_docling():
             with requests.Session() as doc_session:
-                logging.info("DOCLING WAITING: filename phase must finish first")
-                filename_phase_done.wait()
-                logging.info("DOCLING READY: filename phase finished")
+                logging.info("DOCLING READY: processing files one at a time")
                 while True:
                     item = docling_queue.get()
                     if item is stop:
                         return
                     index, path, json_path = item
                     try:
-                        if stream_failed.is_set():
-                            raise RuntimeError("Deferred: OnePlus stream completion unknown")
                         key, digest = jobs[path]
                         cached_state = state_db.get(key)
                         if cached_state.get("docling_json") and Path(cached_state["docling_json"]).exists():
@@ -429,7 +422,6 @@ def main() -> None:
                         completed.put(path)
 
         def consume_oneplus():
-            nonlocal filename_phase_count
             with requests.Session() as one_session:
                 while True:
                     item = pending.get()
@@ -440,41 +432,17 @@ def main() -> None:
                         if stream_failed.is_set():
                             raise RuntimeError("Deferred: OnePlus stream completion unknown; restart after checking server")
                         logging.info("[%d/%d] ONEPLUS %s START file=%s", index, len(files), stage.upper(), path)
-                        if stage == "filename":
-                            cached_label = state_db.get(jobs[path][0]).get("filename_label")
-                            label = cached_label or classify_filename(one_session, args.oneplus_url, args.model, path, args.timeout)
-                            filename_path = json_path.with_name(json_path.stem + ".filename.json")
-                            atomic_json(filename_path, label)
-                            state_db.put(jobs[path][0], filename_label=label)
-                            needs_content = label["category"] == "other" or not 0.9 <= label["confidence"] <= 1.0
-                            logging.info("FILENAME COMPLETE file=%s category=%s confidence=%s needs_content_check=%s",
-                                         path, label["category"], label["confidence"], needs_content)
-                            with filename_phase_lock:
-                                filename_phase_count += 1
-                                if filename_phase_count == len(files):
-                                    filename_phase_done.set()
-                            if needs_content:
-                                docling_queue.put((index, path, json_path))
-                                logging.info("DOCLING QUEUED file=%s", path)
-                                continue
-                        else:
-                            label = classify(one_session, args.oneplus_url, args.model, result, path, args.timeout,
-                                             max_attempts=max(1, args.retry))
+                        label = classify(one_session, args.oneplus_url, args.model, result, path, args.timeout,
+                                         max_attempts=max(1, args.retry))
                         oneplus_path = json_path.with_name(json_path.stem + ".oneplus.json")
                         atomic_json(oneplus_path, label)
                         record = {"source": str(path), "classification_basis": stage,
                                   "oneplus_json": str(oneplus_path), **label}
                         if stage == "content":
                             record["docling_json"] = str(json_path)
-                        finish_file(path, label, stage, json_path,
-                                    filename_path if stage == "filename" else None)
+                        finish_file(path, label, stage, json_path)
                         logging.info("ONEPLUS COMPLETE file=%s category=%s basis=%s", path, label["category"], stage)
                     except Exception as exc:
-                        if stage == "filename":
-                            with filename_phase_lock:
-                                filename_phase_count += 1
-                                if filename_phase_count == len(files):
-                                    filename_phase_done.set()
                         run_failed.set()
                         if isinstance(exc, StreamIncomplete):
                             stream_failed.set()
@@ -501,12 +469,7 @@ def main() -> None:
                 continue
             state_db.put(key, source=str(path), sha256=digest, status="pending")
             json_path = args.json_output / f"{safe_category(path.stem)}_{key}.json"
-            if args.retry_saved:
-                docling_queue.put((index, path, json_path))
-            else:
-                pending.put(("filename", index, path, json_path, None))
-        if args.retry_saved or not files:
-            filename_phase_done.set()
+            docling_queue.put((index, path, json_path))
         for _ in files:
             completed.get()
         pending.put(stop)
