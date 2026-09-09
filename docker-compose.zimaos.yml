@@ -1,0 +1,20 @@
+services:
+  document-sorter:
+    image: ghcr.io/snehithgit/document-sorter:latest
+    container_name: document-sorter
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    environment:
+      DASHBOARD_HOST: 0.0.0.0
+      DASHBOARD_PORT: 8765
+    volumes:
+      - /DATA/AppData/document-sorter/input:/app/input
+      - /DATA/AppData/document-sorter/sorted:/app/sorted
+      - /DATA/AppData/document-sorter/docling_json:/app/docling_json
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/api/status', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
