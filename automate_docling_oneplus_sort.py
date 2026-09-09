@@ -160,29 +160,6 @@ class StreamIncomplete(RuntimeError):
 def stream_oneplus(session, url, payload, path, timeout):
     """Only a complete SSE response releases the worker for its next request."""
     payload = dict(payload, stream=True)
-    slots_url = url.split('/v1/')[0] + '/slots'
-    deadline = time.monotonic() + timeout
-    status_failures = 0
-    while True:
-        try:
-            status = session.get(slots_url, timeout=10)
-            status.raise_for_status()
-            slots = status.json()
-            if not isinstance(slots, list) or not slots:
-                raise ValueError('No worker slots reported')
-        except Exception as exc:
-            status_failures += 1
-            if time.monotonic() >= deadline:
-                raise StreamIncomplete(f'Cannot confirm OnePlus idle after {status_failures} checks: {exc}') from exc
-            logging.warning('ONEPLUS STATUS CHECK FAILED (%d); retrying in 5s: %s', status_failures, exc)
-            time.sleep(5)
-            continue
-        if all(slot.get('is_processing') is False for slot in slots):
-            break
-        if time.monotonic() >= deadline:
-            raise StreamIncomplete('OnePlus remained busy; request was not sent')
-        logging.info('ONEPLUS BUSY: waiting before sending file=%s', path)
-        time.sleep(5)
     fragments = []
     chunks = 0
     started = last_log = time.monotonic()
@@ -191,6 +168,7 @@ def stream_oneplus(session, url, payload, path, timeout):
         with session.post(url, json=payload, stream=True, timeout=(15, timeout)) as response:
             if not response.ok:
                 raise requests.HTTPError(f"OnePlus HTTP {response.status_code}: {response.text[:2000]}", response=response)
+            logging.info('ONEPLUS INPUT SENT file=%s; waiting for complete stream', path)
             for line in response.iter_lines(chunk_size=1024):
                 if not line or not line.startswith(b"data:"):
                     continue
