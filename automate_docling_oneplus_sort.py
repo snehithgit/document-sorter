@@ -190,6 +190,13 @@ Output exactly JSON with only these keys and no explanation: {"category":"short_
     return decision
 
 
+def is_protected_pdf(path: Path) -> bool:
+    if path.suffix.lower() != '.pdf':
+        return False
+    with path.open('rb') as source:
+        return PdfReader(source).is_encrypted
+
+
 def pdf_preview(path: Path, pages: int) -> tuple[io.BytesIO, int, int]:
     """Build an upload containing only the first pages; leave the source intact."""
     with path.open("rb") as source:
@@ -364,7 +371,8 @@ def main() -> None:
             record = dict(source=str(path), stage="complete", classification_basis=stage,
                           docling_json=str(json_path) if stage == "content" else None,
                           filename_json=str(filename_json) if filename_json else None,
-                          oneplus_json=str(json_path.with_name(json_path.stem + ".oneplus.json")),
+                          oneplus_json=str(json_path.with_name(json_path.stem + ".oneplus.json")) if stage != "protected" else None,
+                          protected_pdf= True if stage == "protected" else None,
                           **label,
                           sorted_to=str(destination), copy_verified=True, sha256=verified)
             record = {k: v for k, v in record.items() if v is not None}
@@ -454,6 +462,25 @@ def main() -> None:
             digest = file_digest(path)
             key = hashlib.sha256((str(path) + digest + str(args.pages)).encode()).hexdigest()
             jobs[path] = (key, digest)
+            json_path = args.json_output / f"{safe_category(path.stem)}_{key}.json"
+            try:
+                protected = is_protected_pdf(path)
+            except Exception as exc:
+                run_failed.set()
+                record_event({"source": str(path), "stage": "pdf_check", "error": str(exc)})
+                logging.exception("PDF CHECK FAILED file=%s", path)
+                completed.put(path)
+                continue
+            if protected:
+                try:
+                    logging.info("PROTECTED PDF file=%s; sorting locally without server requests", path)
+                    finish_file(path, {"category": "protected", "confidence": 1.0}, "protected", json_path)
+                except Exception as exc:
+                    run_failed.set()
+                    record_event({"source": str(path), "stage": "protected", "error": str(exc)})
+                    logging.exception("PROTECTED COPY FAILED file=%s", path)
+                completed.put(path)
+                continue
             saved = state_db.get(key)
             if saved.get("label") and not args.retry_saved:
                 try:
