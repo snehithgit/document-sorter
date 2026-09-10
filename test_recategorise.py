@@ -13,6 +13,13 @@ import automate_docling_oneplus_sort as sorter
 
 
 class RecategoriseTests(unittest.TestCase):
+    def test_protection_check_is_before_hashing(self):
+        order = []
+        with patch.object(sorter, 'is_protected_pdf', side_effect=lambda path: order.append('protect') or True), \
+                patch.object(sorter, 'file_digest', side_effect=lambda path: order.append('hash') or 'digest'):
+            self.assertTrue(sorter.is_protected_pdf(Path('slow.pdf')))
+            self.assertEqual(order, ['protect'])
+
     def test_http_recategorise_and_origin_guard(self):
         server = ThreadingHTTPServer(('127.0.0.1', 0), dashboard.Handler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)

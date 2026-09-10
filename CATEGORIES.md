@@ -10,6 +10,9 @@ instead of creating an arbitrary folder. The failure is logged; originals remain
 This is client-side validation, not a claim of grammar-constrained server decoding.
 
 `protected` is reserved for locally detected encrypted PDFs and is not a model category.
+The protection check runs before hashing, resume lookup, or either server queue; slow
+PDF reads are logged as `PDF PROTECTION CHECK START/COMPLETE`, and a check error keeps
+the file off both servers.
 Existing verified sorted files are not moved or reclassified automatically. Pending
 cached labels outside the approved schema are reclassified, reusing saved Docling
 output when available. Existing valid cached labels continue to be reusable.

@@ -464,18 +464,25 @@ def main() -> None:
         for worker in workers:
             worker.start()
         for index, path in enumerate(files, 1):
+            try:
+                # Do this before hashing, resuming, or queueing. A slow PDF read
+                # must never accidentally reach Docling because it was treated as
+                # an ordinary document while the protected check was delayed.
+                if path.suffix.lower() == '.pdf':
+                    logging.info("PDF PROTECTION CHECK START file=%s", path)
+                protected = is_protected_pdf(path)
+                if path.suffix.lower() == '.pdf':
+                    logging.info("PDF PROTECTION CHECK COMPLETE file=%s protected=%s", path, protected)
+            except Exception as exc:
+                run_failed.set()
+                record_event({"source": str(path), "stage": "pdf_check", "error": str(exc)})
+                logging.exception("PDF PROTECTION CHECK FAILED file=%s; not sending to servers", path)
+                completed.put(path)
+                continue
             digest = file_digest(path)
             key = hashlib.sha256((str(path) + digest + str(args.pages)).encode()).hexdigest()
             jobs[path] = (key, digest)
             json_path = args.json_output / f"{safe_category(path.stem)}_{key}.json"
-            try:
-                protected = is_protected_pdf(path)
-            except Exception as exc:
-                run_failed.set()
-                record_event({"source": str(path), "stage": "pdf_check", "error": str(exc)})
-                logging.exception("PDF CHECK FAILED file=%s", path)
-                completed.put(path)
-                continue
             if protected:
                 try:
                     logging.info("PROTECTED PDF file=%s; sorting locally without server requests", path)
