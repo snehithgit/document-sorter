@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from classification_categories import CATEGORIES, SYSTEM_PROMPT, FILENAME_PROMPT, validate_label
+from classification_categories import CATEGORIES, CATEGORY_TEXT, SYSTEM_PROMPT, FILENAME_PROMPT, validate_label
 from automate_docling_oneplus_sort import classify, parse_json
 
 
@@ -12,16 +12,18 @@ class CategoryTests(unittest.TestCase):
         self.assertEqual(len(CATEGORIES), 70)
         self.assertEqual(len(set(CATEGORIES)), 70)
         self.assertNotIn('protected', CATEGORIES)
+        self.assertNotIn(CATEGORY_TEXT, SYSTEM_PROMPT)
+        self.assertNotIn(CATEGORY_TEXT, FILENAME_PROMPT)
         for category in CATEGORIES:
-            self.assertIn(category, SYSTEM_PROMPT)
-            self.assertIn(category, FILENAME_PROMPT)
             self.assertEqual(parse_json(json.dumps({'category': category, 'confidence': 0.9})),
-                             {'category': category, 'confidence': 0.9})
+                             {'category': category, 'confidence': 0.9, 'in_taxonomy': True})
 
     def test_reject_unknown_and_unsafe_categories(self):
-        for category in ('novel', '../passport', 'protected', 'Bank Statement', '', None):
+        for category in ('protected', '', None):
             with self.subTest(category=category), self.assertRaises(ValueError):
                 validate_label({'category': category, 'confidence': 0.9})
+        self.assertFalse(validate_label({'category': 'cabin_deficiency_report', 'confidence': 0.9})['in_taxonomy'])
+        self.assertFalse(validate_label({'category': 'Bank Statement', 'confidence': 0.9})['in_taxonomy'])
 
     def test_reject_invalid_confidence(self):
         for confidence in (-0.1, 1.1, float('nan'), float('inf'), True, '0.9', None):
@@ -51,9 +53,10 @@ class CategoryTests(unittest.TestCase):
     def test_invalid_model_answer_does_not_become_a_label(self):
         with patch('automate_docling_oneplus_sort.stream_oneplus',
                    return_value='{"category":"invented_folder","confidence":0.99}'):
-            with self.assertRaises(ValueError):
-                classify(None, 'unused', 'test-model',
-                         {'document': {'text_content': 'some content'}}, Path('x.pdf'), 10)
+            label = classify(None, 'unused', 'test-model',
+                             {'document': {'text_content': 'some content'}}, Path('x.pdf'), 10)
+            self.assertEqual(label['category'], 'invented_folder')
+            self.assertFalse(label['in_taxonomy'])
 
     def test_book_rule_is_in_prompt(self):
         self.assertIn('book title', SYSTEM_PROMPT)

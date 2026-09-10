@@ -1,7 +1,8 @@
 # Approved classification categories
 
-The authoritative list of 70 categories (69 document types plus `other`) is
-`classification_categories.py`. Both classification prompts use this same list.
+The reference list of 70 categories (69 document types plus `other`) is
+`classification_categories.py`. It is used for reporting `in_taxonomy`, not shown
+to the inference model.
 The content pipeline still sends only compact Docling evidence, without the filename.
 
 Responses must contain exactly `category` and numeric `confidence` (0–1). Approved
