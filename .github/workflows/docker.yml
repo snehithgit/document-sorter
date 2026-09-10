@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - run: python -m unittest test_recovery.py
+      - run: python -m unittest test_recovery test_excerpt
 
   build:
     name: Build container
