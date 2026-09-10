@@ -7,5 +7,7 @@ sorted/
 docling_json/
 sorted_by_oneplus/
 original/
+category_review.md
+category_review.json
 *.zip
 *.tar.gz
