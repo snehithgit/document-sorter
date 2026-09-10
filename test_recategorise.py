@@ -31,7 +31,7 @@ class RecategoriseTests(unittest.TestCase):
                     data=b'{"pages":2}', headers={'Origin': url, 'Content-Type': 'application/json'})
                 with urllib.request.urlopen(request, timeout=3) as response:
                     self.assertEqual(response.status, 200)
-                runner.start.assert_called_once_with(2, recategorise=True)
+                runner.start.assert_called_once_with(2, inference='oneplus', recategorise=True)
                 request = urllib.request.Request(url + '/api/recategorise',
                     data=b'{"pages":2}', headers={'Origin': 'http://untrusted.example'})
                 with self.assertRaises(urllib.error.HTTPError) as error:

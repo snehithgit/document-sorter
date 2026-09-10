@@ -308,6 +308,8 @@ def main() -> None:
     parser.add_argument("--json-output", type=Path, default=Path("docling_json"))
     parser.add_argument("--docling-url", default="http://192.168.68.63:5001/v1/convert/file")
     parser.add_argument("--oneplus-url", default="http://192.168.68.60:8080/v1/chat/completions")
+    parser.add_argument("--pi5-url", default="http://192.168.68.55:8080/v1/chat/completions")
+    parser.add_argument("--inference", choices=("oneplus", "pi5"), default="oneplus")
     parser.add_argument("--model", default="/storage/emulated/0/Download/Qwen3.5-2B-Qwen3.6-plus-Distilled-q8_0.gguf")
     parser.add_argument("--retry", type=int, default=3)
     parser.add_argument("--retry-saved", action="store_true", help="Use existing Docling JSON; do not submit files to Docling")
@@ -315,6 +317,9 @@ def main() -> None:
     parser.add_argument("--pages", type=int, choices=(1, 2, 3), default=2,
                         help="Upload only the first 1, 2, or 3 PDF pages (default: 2)")
     args = parser.parse_args()
+    if args.inference == "pi5":
+        args.oneplus_url = args.pi5_url
+        args.model = "Qwen3.5-2B-Q8_0.gguf"
     args.json_output = args.json_output.resolve()
     if args.retry < 1 or args.timeout < 1:
         parser.error("Retry and timeout must be positive")

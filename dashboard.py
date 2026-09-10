@@ -44,7 +44,7 @@ class ProcessRunner:
             self.logs.extend(log_path.read_text(encoding='utf-8', errors='replace').splitlines()[-1500:])
         self.exit_code = None
 
-    def start(self, pages, recategorise=False):
+    def start(self, pages, inference='oneplus', recategorise=False):
         with self.lock:
             if self.process and self.process.poll() is None:
                 raise ValueError('Processing is already running')
@@ -53,7 +53,7 @@ class ProcessRunner:
             launch = {}
             if os.name == 'nt':
                 launch['creationflags'] = 0x08000000
-            command = [sys.executable, '-u', str(ROOT / 'automate_docling_oneplus_sort.py'), '--pages', str(pages)]
+            command = [sys.executable, '-u', str(ROOT / 'automate_docling_oneplus_sort.py'), '--pages', str(pages), '--inference', inference]
             if recategorise:
                 command.append('--retry-saved')
             self.process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', **launch)
@@ -159,9 +159,12 @@ class Handler(BaseHTTPRequestHandler):
             if self.path in ('/api/start', '/api/recategorise'):
                 body = json.loads(self.rfile.read(min(int(self.headers.get('Content-Length', 0)), 1024)))
                 pages = body.get('pages', 2)
+                inference = body.get('inference', 'oneplus')
                 if pages not in (1, 2, 3):
                     raise ValueError('Pages must be 1, 2 or 3')
-                runner.start(pages, recategorise=self.path == '/api/recategorise')
+                if inference not in ('oneplus', 'pi5'):
+                    raise ValueError('Inference must be oneplus or pi5')
+                runner.start(pages, inference=inference, recategorise=self.path == '/api/recategorise')
             elif self.path == '/api/stop':
                 runner.stop()
             else:
