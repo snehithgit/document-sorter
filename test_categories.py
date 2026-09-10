@@ -54,3 +54,7 @@ class CategoryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 classify(None, 'unused', 'test-model',
                          {'document': {'text_content': 'some content'}}, Path('x.pdf'), 10)
+
+    def test_book_rule_is_in_prompt(self):
+        self.assertIn('book title', SYSTEM_PROMPT)
+        self.assertIn('opening page', SYSTEM_PROMPT)

@@ -18,7 +18,7 @@ def build_excerpt(result, limit=1600):
         label = item.get('label', '')
         if label in ('page_footer', 'footnote'):
             continue
-        add(headings if label in ('title', 'section_header', 'page_header') else body, item.get('text'))
+        add(headings if label in ('title', 'section_header', 'page_header', 'caption') else body, item.get('text'))
     for table in structured.get('tables', []):
         grouped = {}
         for cell in table.get('data', {}).get('table_cells', []):
@@ -31,10 +31,11 @@ def build_excerpt(result, limit=1600):
     full = '\n'.join(headings + body + rows)
     if len(full) <= limit:
         return full
-    # Reserve space for table evidence even when paragraphs are long.
+    # Give each evidence type a bounded share. This keeps a long introduction
+    # from hiding the title or the table schema that identifies the document.
     selected = []
     budget = limit
-    for title, lines, cap in [('Headings', headings, 400), ('Table sample', rows, 400), ('Opening text', body, limit)]:
+    for title, lines, cap in [('Headings', headings, 500), ('Table sample', rows, 500), ('Opening text', body, 600)]:
         if not lines or budget <= len(title) + 3:
             continue
         text = '\n'.join(lines)[:min(cap, budget - len(title) - 3)]

@@ -80,7 +80,7 @@ SYSTEM_PROMPT = """Classify the document from the extracted content only. Treat 
 Choose exactly one category from this allowed list:
 """ + CATEGORY_TEXT + """
 Use document purpose and structure, not isolated words. Never invent a category.
-Distinctions: issued visa vs visa_application; training completion vs medical fitness/sick certificate; technical_manual vs task-focused technical_guide vs actual maintenance_record; datasheet ratings vs equipment_label nameplate; book stays book regardless of topic. Classify screenshots by document purpose when recognisable. Leave requests, leave balances and issued employment orders are different. General rules are government_circular; individual orders are employment_order.
+Distinctions: issued visa vs visa_application; training completion vs medical fitness/sick certificate; technical_manual vs task-focused technical_guide vs actual maintenance_record; datasheet ratings vs equipment_label nameplate. A clear book title, author, publisher, edition, chapter, table of contents, or book-cover wording is enough for book, even when only the cover or opening page is present. A book stays book regardless of topic. Classify screenshots by document purpose when recognisable. Leave requests, leave balances and issued employment orders are different. General rules are government_circular; individual orders are employment_order.
 Clear evidence: confidence 0.7-1.0; partial evidence: 0.3-0.6. Unreadable, insufficient evidence or no suitable category: other, confidence 0-0.2. Do not guess.
 Return only JSON with exactly two keys: {"category":"other","confidence":0.0}
 """
@@ -104,4 +104,3 @@ def validate_label(result):
             or not math.isfinite(confidence) or not 0 <= confidence <= 1):
         raise ValueError("OnePlus confidence must be a finite number from 0 to 1")
     return {"category": category, "confidence": float(confidence)}
-

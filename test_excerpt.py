@@ -35,3 +35,10 @@ class ExcerptTests(unittest.TestCase):
             {'data': {'table_cells': [{'text': 'Account balance'}]}}
         ]}}}
         self.assertEqual(build_excerpt(result), 'Account balance')
+
+    def test_caption_is_identity_evidence(self):
+        result = {'document': {'json_content': {'texts': [
+            {'label': 'caption', 'text': 'Medical fitness certificate'},
+            {'label': 'text', 'text': 'This certifies the person was examined.'},
+        ]}}}
+        self.assertIn('Medical fitness certificate', build_excerpt(result))
