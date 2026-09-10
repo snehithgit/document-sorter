@@ -42,3 +42,14 @@ class ExcerptTests(unittest.TestCase):
             {'label': 'text', 'text': 'This certifies the person was examined.'},
         ]}}}
         self.assertIn('Medical fitness certificate', build_excerpt(result))
+
+    def test_column_header_is_marked(self):
+        result = {'document': {'json_content': {'tables': [{'data': {'table_cells': [
+            {'start_row_offset_idx': 0, 'column_header': True, 'text': 'Date'},
+            {'start_row_offset_idx': 0, 'column_header': True, 'text': 'Amount'},
+        ]}}]}}}
+        self.assertEqual(build_excerpt(result), 'Header: Date | Amount')
+
+    def test_clip_does_not_split_word(self):
+        result = {'document': {'text_content': 'alpha beta gamma delta'}}
+        self.assertEqual(build_excerpt(result, 12), 'alpha beta')

@@ -58,3 +58,10 @@ class CategoryTests(unittest.TestCase):
     def test_book_rule_is_in_prompt(self):
         self.assertIn('book title', SYSTEM_PROMPT)
         self.assertIn('opening page', SYSTEM_PROMPT)
+
+    def test_empty_docling_skips_inference(self):
+        with patch('automate_docling_oneplus_sort.stream_oneplus') as stream:
+            self.assertEqual(classify(None, 'unused', 'test-model',
+                                      {'document': {'json_content': {}}}, Path('x.jpg'), 10),
+                             {'category': 'other', 'confidence': 0.0})
+            stream.assert_not_called()

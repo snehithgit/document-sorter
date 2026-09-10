@@ -273,7 +273,8 @@ def classify(session: requests.Session, url: str, model: str, docling_json: dict
              max_attempts: int = 6, backend: str = "inference") -> dict:
     text = build_excerpt(docling_json)
     if not text.strip():
-        raise ValueError("Docling returned no extracted text for classification")
+        logging.info("%s NO TEXT file=%s; assigning other without inference request", backend.upper(), path)
+        return {"category": "other", "confidence": 0.0}
     logging.info("%s evidence file=%s excerpt_chars=%d limit=1600", backend.upper(), path.name, len(text))
     payload = {
         "model": model,
