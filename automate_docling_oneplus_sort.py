@@ -480,7 +480,7 @@ def main() -> None:
                         if isinstance(exc, StreamIncomplete):
                             stream_failed.set()
                             logging.error("ONEPLUS HALTED: completion unknown; no further inference requests will be sent")
-                        logging.exception("ONEPLUS FAILED file=%s", path)
+                        logging.exception("%s FAILED file=%s", args.inference.upper(), path)
                         record_event({"source": str(path), "stage": stage, "error": str(exc)})
                     completed.put(path)
 

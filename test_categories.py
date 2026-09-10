@@ -35,6 +35,8 @@ class CategoryTests(unittest.TestCase):
                        {'category': 'book', 'confidence': 1, 'description': 'extra'}):
             with self.subTest(result=result), self.assertRaises(ValueError):
                 validate_label(result)
+        self.assertTrue(validate_label({'category': 'book', 'confidence': 1,
+                                        'in_taxonomy': True})['in_taxonomy'])
 
     def test_content_request_uses_list_without_filename(self):
         result = {'document': {'json_content': {'texts': [

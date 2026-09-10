@@ -91,8 +91,10 @@ Return only JSON with exactly two keys: {"category":"other","confidence":0.0}
 
 def validate_label(result):
     """Validate shape and safety while allowing useful new categories."""
-    if not isinstance(result, dict) or set(result) != {"category", "confidence"}:
-        raise ValueError("OnePlus response must contain only category and confidence")
+    if not isinstance(result, dict) or not {"category", "confidence"}.issubset(result):
+        raise ValueError("OnePlus response must contain category and confidence")
+    if set(result) - {"category", "confidence", "in_taxonomy"}:
+        raise ValueError("OnePlus response contains unsupported fields")
     category = result["category"].strip() if isinstance(result["category"], str) else ""
     if not category or len(category) > 80:
         raise ValueError("OnePlus category must be a non-empty string of reasonable length")
@@ -102,5 +104,8 @@ def validate_label(result):
     if (isinstance(confidence, bool) or not isinstance(confidence, (int, float))
             or not math.isfinite(confidence) or not 0 <= confidence <= 1):
         raise ValueError("OnePlus confidence must be a finite number from 0 to 1")
-    return {"category": category, "confidence": float(confidence),
+    label = {"category": category, "confidence": float(confidence),
             "in_taxonomy": category.casefold() in CATEGORY_SET}
+    if "in_taxonomy" in result and result["in_taxonomy"] is not label["in_taxonomy"]:
+        raise ValueError("in_taxonomy does not match the category")
+    return label
