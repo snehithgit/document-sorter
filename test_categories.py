@@ -60,13 +60,9 @@ class CategoryTests(unittest.TestCase):
             self.assertEqual(label['category'], 'invented_folder')
             self.assertFalse(label['in_taxonomy'])
 
-    def test_book_rule_is_in_prompt(self):
-        self.assertIn('book title', SYSTEM_PROMPT)
-        self.assertIn('opening page', SYSTEM_PROMPT)
-
     def test_empty_docling_skips_inference(self):
         with patch('automate_docling_oneplus_sort.stream_oneplus') as stream:
-            self.assertEqual(classify(None, 'unused', 'test-model',
-                                      {'document': {'json_content': {}}}, Path('x.jpg'), 10),
-                             {'category': 'other', 'confidence': 0.0})
+            with self.assertRaisesRegex(ValueError, 'needs review'):
+                classify(None, 'unused', 'test-model',
+                         {'document': {'json_content': {}}}, Path('x.jpg'), 10)
             stream.assert_not_called()

@@ -13,6 +13,21 @@ import automate_docling_oneplus_sort as sorter
 
 
 class RecategoriseTests(unittest.TestCase):
+    def test_permission_only_pdf_is_readable_but_password_pdf_is_protected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for password in ('', 'opening-password'):
+                path = Path(folder) / ('open.pdf' if not password else 'locked.pdf')
+                writer = sorter.PdfWriter()
+                writer.add_blank_page(width=100, height=100)
+                writer.encrypt(user_password=password, owner_password='owner-password')
+                with path.open('wb') as stream:
+                    writer.write(stream)
+                self.assertEqual(sorter.is_protected_pdf(path), bool(password))
+                if not password:
+                    preview, sent, total = sorter.pdf_preview(path, 2)
+                    self.assertEqual((sent, total), (1, 1))
+                    self.assertFalse(sorter.PdfReader(preview).is_encrypted)
+
     def test_protection_check_is_before_hashing(self):
         order = []
         with patch.object(sorter, 'is_protected_pdf', side_effect=lambda path: order.append('protect') or True), \
@@ -100,10 +115,13 @@ class RecategoriseTests(unittest.TestCase):
             args = ['sorter', '--input', str(inputs), '--output', str(output),
                     '--json-output', str(snapshots), '--retry-saved']
             with patch('sys.argv', args), patch.object(sorter, 'docling_convert') as docling, \
-                    patch.object(sorter, 'classify', return_value={'category': 'invoice', 'confidence': 0.9}) as classify:
+                    patch.object(sorter, 'stream_oneplus', return_value='{"category":"custom_invoice","confidence":0.9}') as classify:
                 sorter.main()
             docling.assert_not_called()
             classify.assert_called_once()
-            self.assertEqual((output / 'invoice' / source.name).read_bytes(), source.read_bytes())
+            self.assertEqual((output / 'custom_invoice' / source.name).read_bytes(), source.read_bytes())
+            latest = json.loads((output / 'manifest.jsonl').read_text(encoding='utf-8').splitlines()[-1])
+            self.assertEqual(latest['category'], 'custom_invoice')
+            self.assertFalse(latest['in_taxonomy'])
             self.assertTrue(old_copy.exists())
             self.assertTrue(source.exists())

@@ -91,6 +91,8 @@ def select_unique_files(files, manifest: Path, output: Path, reprocess=False):
         for line in manifest.read_text(encoding="utf-8").splitlines():
             try:
                 record = json.loads(line)
+                if record.get("category") == "protected":
+                    continue  # Recheck legacy encryption-only classifications.
                 destination = Path(record.get("sorted_to", "")).resolve()
                 digest = record.get("sha256")
                 if (record.get("copy_verified") and digest and output.resolve() in destination.parents
@@ -226,13 +228,16 @@ def is_protected_pdf(path: Path) -> bool:
     if path.suffix.lower() != '.pdf':
         return False
     with path.open('rb') as source:
-        return PdfReader(source).is_encrypted
+        reader = PdfReader(source)
+        return reader.is_encrypted and not bool(reader.decrypt(""))
 
 
 def pdf_preview(path: Path, pages: int) -> tuple[io.BytesIO, int, int]:
     """Build an upload containing only the first pages; leave the source intact."""
     with path.open("rb") as source:
         reader = PdfReader(source)
+        if reader.is_encrypted and not reader.decrypt(""):
+            raise ValueError("PDF requires an opening password")
         total = len(reader.pages)
         if not total:
             raise ValueError(f"PDF has no pages: {path}")
@@ -291,8 +296,7 @@ def classify(session: requests.Session, url: str, model: str, docling_json: dict
              max_attempts: int = 6, backend: str = "inference") -> dict:
     text = build_excerpt(docling_json)
     if not text.strip():
-        logging.info("%s NO TEXT file=%s; assigning other without inference request", backend.upper(), path)
-        return {"category": "other", "confidence": 0.0}
+        raise ValueError("No extracted evidence; needs review before inference can categorise this file")
     logging.info("%s evidence file=%s excerpt_chars=%d limit=1600", backend.upper(), path.name, len(text))
     payload = {
         "model": model,
@@ -519,6 +523,8 @@ def main() -> None:
                 completed.put(path)
                 continue
             saved = state_db.get(key)
+            if saved.get("classification_basis") == "protected":
+                saved = {}  # Readable PDF: do not reuse an old protected decision.
             if saved.get("label"):
                 try:
                     validate_label(saved["label"])

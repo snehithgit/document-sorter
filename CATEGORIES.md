@@ -5,17 +5,22 @@ The reference list of 70 categories (69 document types plus `other`) is
 to the inference model.
 The content pipeline still sends only compact Docling evidence, without the filename.
 
-Responses must contain exactly `category` and numeric `confidence` (0–1). Approved
-categories are preferred, but useful new categories are accepted and marked with
+Responses must contain exactly `category` and numeric `confidence` (0–1). The
+model's chosen category is final; new categories are accepted and marked with
 `in_taxonomy: false`; recurring new types can be reviewed later. Malformed
 responses, the reserved `protected` category, extra/missing fields and invalid
 confidence values fail the file. The failure is logged; originals remain intact.
 This is client-side validation, not a claim of grammar-constrained server decoding.
 
-`protected` is reserved for locally detected encrypted PDFs and is not a model category.
-The protection check runs before hashing, resume lookup, or either server queue; slow
+`protected` is reserved for PDFs requiring an opening password and is not a model category.
+PDFs encrypted with an empty opening password are readable and continue through classification.
+The protection check runs before resume lookup or either server queue; slow
 PDF reads are logged as `PDF PROTECTION CHECK START/COMPLETE`, and a check error keeps
 the file off both servers.
+
+Empty OCR is held as an error for review, without assigning a local category.
+Use Recategorise to replace existing classifications from saved Docling output.
+Legacy protected entries are rechecked on a normal run; old sorted copies are retained.
 
 Inference can be selected in the dashboard or with `--inference oneplus|pi5`.
 OnePlus uses `192.168.68.60:8080`; Pi 5 uses `192.168.68.55:8080` and its
