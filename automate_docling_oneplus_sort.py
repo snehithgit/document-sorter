@@ -115,6 +115,26 @@ def select_unique_files(files, manifest: Path, output: Path, reprocess=False):
     return selected, skipped
 
 
+def saved_docling_for(path, digest, json_output, records):
+    """Only reuse extraction linked to these exact bytes, never basename alone."""
+    candidates = []
+    for record in records:
+        if record.get("sha256") == digest:
+            value = record.get("docling_json") or record.get("json_path")
+            if value:
+                candidates.append(Path(value))
+    # Recover current-format snapshots even if the state database was lost.
+    for pages in (1, 2, 3):
+        key = hashlib.sha256((str(path) + digest + str(pages)).encode()).hexdigest()
+        candidates.append(json_output / f"{safe_category(path.stem)}_{key}.json")
+    for candidate in dict.fromkeys(candidates):
+        if candidate.is_file():
+            result = json.loads(candidate.read_text(encoding="utf-8"))
+            if result.get("status") == "success":
+                return candidate, result
+    raise ValueError("No successful hash-linked Docling output for this file; run normal processing first")
+
+
 def parse_json(text: str) -> dict:
     text = text.strip().replace("```json", "").replace("```", "").strip()
     match = re.search(r"\{.*\}", text, flags=re.DOTALL)
@@ -321,6 +341,9 @@ def main() -> None:
     file_log.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
     logging.getLogger().addHandler(file_log)
     state_db = StateStore(args.output / "state.sqlite3")
+    saved_records = state_db.all() if args.retry_saved else []
+    if args.retry_saved:
+        logging.info("ONEPLUS RECATEGORISE: bypassing saved labels; reusing hash-linked Docling output only; old copies retained")
     jobs = {}
     manifest = args.output / "manifest.jsonl"
     excluded = {args.output.resolve(), args.json_output.resolve()}
@@ -386,16 +409,8 @@ def main() -> None:
                             result = json.loads(json_path.read_text(encoding="utf-8"))
                             logging.info("DOCLING RESUME file=%s", path)
                         elif args.retry_saved:
-                            matches = []
-                            for saved in args.json_output.glob("*.json"):
-                                if saved.name.endswith((".oneplus.json", ".filename.json")):
-                                    continue
-                                cached = json.loads(saved.read_text(encoding="utf-8"))
-                                if cached.get("_local_file_id") == path.name:
-                                    matches.append((saved, cached))
-                            if len(matches) != 1:
-                                raise ValueError("Cannot uniquely match saved Docling JSON")
-                            json_path, result = matches[0]
+                            json_path, result = saved_docling_for(path, digest, args.json_output, saved_records)
+                            logging.info("DOCLING SAVED OUTPUT file=%s json=%s; no conversion request", path, json_path)
                         else:
                             logging.info("DOCLING START file=%s", path)
                             result = with_retries(

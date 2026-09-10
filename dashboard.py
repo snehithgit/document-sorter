@@ -44,7 +44,7 @@ class ProcessRunner:
             self.logs.extend(log_path.read_text(encoding='utf-8', errors='replace').splitlines()[-1500:])
         self.exit_code = None
 
-    def start(self, pages):
+    def start(self, pages, recategorise=False):
         with self.lock:
             if self.process and self.process.poll() is None:
                 raise ValueError('Processing is already running')
@@ -53,7 +53,11 @@ class ProcessRunner:
             launch = {}
             if os.name == 'nt':
                 launch['creationflags'] = 0x08000000
-            self.process = subprocess.Popen([sys.executable, '-u', str(ROOT / 'automate_docling_oneplus_sort.py'), '--pages', str(pages)], cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', **launch)
+            command = [sys.executable, '-u', str(ROOT / 'automate_docling_oneplus_sort.py'), '--pages', str(pages)]
+            if recategorise:
+                command.append('--retry-saved')
+            self.process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', **launch)
+            self.logs.append('ONEPLUS RECATEGORISE: saved Docling only; input files required; old sorted copies retained.' if recategorise else 'START: normal processing')
             self.exit_code = None
             threading.Thread(target=self.read, args=(self.process,), daemon=True).start()
 
@@ -152,12 +156,12 @@ class Handler(BaseHTTPRequestHandler):
         if origin and origin not in allowed_origins:
             return self.respond({'error': 'Origin rejected'}, 403)
         try:
-            if self.path == '/api/start':
+            if self.path in ('/api/start', '/api/recategorise'):
                 body = json.loads(self.rfile.read(min(int(self.headers.get('Content-Length', 0)), 1024)))
                 pages = body.get('pages', 2)
                 if pages not in (1, 2, 3):
                     raise ValueError('Pages must be 1, 2 or 3')
-                runner.start(pages)
+                runner.start(pages, recategorise=self.path == '/api/recategorise')
             elif self.path == '/api/stop':
                 runner.stop()
             else:
