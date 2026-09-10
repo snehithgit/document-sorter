@@ -4,9 +4,11 @@ The authoritative list of 70 categories (69 document types plus `other`) is
 `classification_categories.py`. Both classification prompts use this same list.
 The content pipeline still sends only compact Docling evidence, without the filename.
 
-Responses must contain exactly `category` and numeric `confidence` (0–1).
-Unknown categories, extra/missing fields and invalid confidence values fail the file
-instead of creating an arbitrary folder. The failure is logged; originals remain intact.
+Responses must contain exactly `category` and numeric `confidence` (0–1). Approved
+categories are preferred, but useful new categories are accepted and marked with
+`in_taxonomy: false`; recurring new types can be reviewed later. Malformed
+responses, the reserved `protected` category, extra/missing fields and invalid
+confidence values fail the file. The failure is logged; originals remain intact.
 This is client-side validation, not a claim of grammar-constrained server decoding.
 
 `protected` is reserved for locally detected encrypted PDFs and is not a model category.
@@ -36,6 +38,11 @@ Saved successful Docling output is matched by source hash/state or the existing
 hash-derived snapshot filename, never basename alone. Previously saved preview
 pages are reused even if the page selector has changed. Missing saved output is
 logged as a failure; no new conversion request is sent to Docling.
+
+If the state database was lost, successful snapshots containing `_local_file_id`
+can be recovered by basename. This fallback is used only when there is exactly one
+match; ambiguous basenames are refused for safety. Place the extracted JSON files
+in the configured `docling_json` folder before using the button.
 
 OnePlus still processes one request at a time. New results are saved and copies
 are hash-verified. Old sorted copies are retained, so changed categories can leave

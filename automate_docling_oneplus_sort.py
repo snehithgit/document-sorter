@@ -47,7 +47,7 @@ DEFAULT_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp",
 
 def safe_category(value: str) -> str:
     value = re.sub(r"[^a-zA-Z0-9_-]+", "_", value.strip().lower()).strip("_.-")
-    return (value or "other")[:80]
+    return (value or "other")[:80].strip("_.-") or "other"
 
 
 def file_digest(path: Path) -> str:
@@ -132,7 +132,25 @@ def saved_docling_for(path, digest, json_output, records):
             result = json.loads(candidate.read_text(encoding="utf-8"))
             if result.get("status") == "success":
                 return candidate, result
-    raise ValueError("No successful hash-linked Docling output for this file; run normal processing first")
+    # Recovery path for a lost SQLite database: older Docling snapshots carry
+    # the original basename. Accept only one successful match; never guess
+    # when two input files share a basename.
+    matches = []
+    for candidate in json_output.glob("*.json"):
+        if candidate.name.endswith((".oneplus.json", ".filename.json")):
+            continue
+        try:
+            result = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if result.get("status") == "success" and result.get("_local_file_id") == path.name:
+            matches.append((candidate, result))
+    if len(matches) == 1:
+        logging.info("DOCLING RECOVERY file=%s matched existing JSON by basename; database link unavailable", path)
+        return matches[0]
+    if len(matches) > 1:
+        raise ValueError(f"Multiple saved Docling JSON files match basename: {path.name}")
+    raise ValueError("No successful saved Docling output for this file; copy/extract Docling JSONs into docling_json first")
 
 
 def parse_json(text: str) -> dict:

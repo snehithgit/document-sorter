@@ -61,9 +61,22 @@ class RecategoriseTests(unittest.TestCase):
             root = Path(folder)
             saved = root / 'old.json'
             sorter.atomic_json(saved, {'status': 'success', '_local_file_id': 'scan.jpg'})
-            with self.assertRaises(ValueError):
-                sorter.saved_docling_for(root / 'scan.jpg', 'new-hash', root,
-                                         [{'sha256': 'old-hash', 'docling_json': str(saved)}])
+            path, result = sorter.saved_docling_for(root / 'scan.jpg', 'new-hash', root,
+                                                    [{'sha256': 'old-hash', 'docling_json': str(saved)}])
+            self.assertEqual(path, saved)
+            self.assertEqual(result['status'], 'success')
+
+    def test_recovers_by_basename_when_database_link_is_missing(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / 'scan.jpg'
+            source.write_bytes(b'current bytes')
+            saved = root / 'saved.json'
+            sorter.atomic_json(saved, {'status': 'success', '_local_file_id': 'scan.jpg',
+                                       'document': {'text_content': 'recovered'}})
+            path, result = sorter.saved_docling_for(source, 'new-hash', root, [])
+            self.assertEqual(path, saved)
+            self.assertEqual(result['document']['text_content'], 'recovered')
 
     def test_reclassifies_completed_input_without_docling(self):
         with tempfile.TemporaryDirectory() as folder:
